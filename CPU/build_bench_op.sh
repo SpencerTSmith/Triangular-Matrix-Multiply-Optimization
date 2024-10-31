@@ -31,7 +31,7 @@ DISTRIBUTED_FREE_NAME_TST="test_free"
 DISTRIBUTE_DATA_NAME_TST="test_distribute"
 COLLECT_DATA_NAME_TST="test_collect"
 
-TEST_RIG="timer_op.c"
+TEST_RIG="./src/timer_op.c"
 
 # Build the timer
 # NOTE: need gnu99/gnu11 to get the POSIX compliance for timing

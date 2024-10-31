@@ -30,7 +30,7 @@ DISTRIBUTED_FREE_NAME_TST="test_free"
 DISTRIBUTE_DATA_NAME_TST="test_distribute"
 COLLECT_DATA_NAME_TST="test_collect"
 
-TEST_RIG="verify_op.c"
+TEST_RIG="./src/verify_op.c"
 
 # Build the verifier code
 ${CC} -std=c99 -c \
