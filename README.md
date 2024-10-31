@@ -1,6 +1,12 @@
 # Pdnfa24 Team25 Lab03
 
+## Useful links
 
+Write up: 
+
+Checkpoint: https://sooners-my.sharepoint.com/:p:/r/personal/teddy_f_diallo-1_ou_edu/_layouts/15/Doc.aspx?sourcedoc=%7BE8ACB1D3-9090-48BC-A95A-E2E6E10B12E7%7D&file=lab_checkpoint_slides.pptx&action=edit&mobileredirect=true
+
+Task List: https://sooners-my.sharepoint.com/:x:/r/personal/teddy_f_diallo-1_ou_edu/Documents/Desktop/FALL%202024/PDN/Labs/lab_3/Lab3_trmm_rubric_for_final_submission_v00.xlsx?d=w8389ea3c8e5046889f19cdab60e23cc5&csf=1&web=1&e=nueKh6
 
 ## Getting started
 
