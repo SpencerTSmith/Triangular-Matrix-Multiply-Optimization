@@ -45,7 +45,7 @@ SHELL:=/bin/bash
 
 
 clean:
-	rm -f *.x *~ *.o
+	rm -f *.x *~ ./src/*.o
 
 cleanall: clean
 	rm -f *.csv *.png
