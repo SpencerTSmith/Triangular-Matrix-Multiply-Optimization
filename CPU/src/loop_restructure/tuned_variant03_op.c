@@ -65,9 +65,9 @@
 #define DISTRIBUTED_FREE_NAME baseline_free
 #endif
 
+//Here we restructured the loop using blocking
 void COMPUTE_NAME(int m0, int n0, float *A_distributed, float *B_distributed,
                   float *C_distributed)
-
 {
   int rid;
   int num_ranks;
@@ -96,24 +96,43 @@ void COMPUTE_NAME(int m0, int n0, float *A_distributed, float *B_distributed,
   MPI_Comm_size(MPI_COMM_WORLD, &num_ranks);
 
   if (rid == root_rid) {
+    // Initialize C_distributed to zero to ensure correct accumulation
     for (int i0 = 0; i0 < m0; ++i0) {
-      for (int j0 = i0 + 1; j0 < n0; ++j0) {
-        float res = 0.0f;
-        for (int p0 = 0; p0 < m0; ++p0) {
-          float A_ip = A_distributed[i0 + p0 * rs_A];
-          float B_pj = B_distributed[p0 + j0 * rs_B];
+      for (int j0 = 0; j0 < n0; ++j0) {
+        C_distributed[i0 * cs_C + j0 * rs_C] = 0.0f;
+      }
+    }
 
-          res += A_ip * B_pj;
+    int blockSize = 16;  // we can tune this for best performance
+
+    // Outer loops for blocks
+    for (int i_block = 0; i_block < m0; i_block += blockSize) {
+      for (int j_block = i_block + 1; j_block < n0; j_block += blockSize) {
+        for (int p_block = 0; p_block < m0; p_block += blockSize) {
+
+          // Inner loops for elements within each block
+          for (int i0 = i_block; i0 < i_block + blockSize && i0 < m0; ++i0) {
+            for (int j0 = j_block; j0 < j_block + blockSize && j0 < n0; ++j0) {
+              if (j0 > i0) {  // Maintain triangular matrix constraint
+                float res = 0.0f;
+                for (int p0 = p_block; p0 < p_block + blockSize && p0 < m0; ++p0) {
+                  float A_ip = A_distributed[i0 + p0 * rs_A];
+                  float B_pj = B_distributed[p0 + j0 * rs_B];
+                  res += A_ip * B_pj;
+                }
+                C_distributed[i0 * cs_C + j0 * rs_C] += res;
+              }
+            }
+          }
         }
-
-        C_distributed[i0 * cs_C + j0 * rs_C] = res;
       }
     }
   } else {
-    /* STUDENT_TODO: Modify this is you plan to use more
-     than 1 rank to do work in distributed memory context. */
+    /* STUDENT_TODO: Modify this if you plan to use more
+       than 1 rank to do work in distributed memory context. */
   }
 }
+
 
 // Create the buffers on each node
 void DISTRIBUTED_ALLOCATE_NAME(int m0, int n0, float **A_distributed,
