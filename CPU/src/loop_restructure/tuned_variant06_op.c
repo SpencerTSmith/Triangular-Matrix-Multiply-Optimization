@@ -67,7 +67,7 @@
 #define DISTRIBUTED_FREE_NAME baseline_free
 #endif
 
-
+//here we changed the for loops into while loops
 void COMPUTE_NAME(int m0, int n0, float *A_distributed, float *B_distributed,
                   float *C_distributed)
 {
