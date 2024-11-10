@@ -65,9 +65,9 @@
 #define DISTRIBUTED_FREE_NAME baseline_free
 #endif
 
+//Here, we are interchanging the initial order of the loops
 void COMPUTE_NAME(int m0, int n0, float *A_distributed, float *B_distributed,
                   float *C_distributed)
-
 {
   int rid;
   int num_ranks;
@@ -96,24 +96,30 @@ void COMPUTE_NAME(int m0, int n0, float *A_distributed, float *B_distributed,
   MPI_Comm_size(MPI_COMM_WORLD, &num_ranks);
 
   if (rid == root_rid) {
+    // Initialize C_distributed to zero to ensure correct accumulation
     for (int i0 = 0; i0 < m0; ++i0) {
-      for (int j0 = i0 + 1; j0 < n0; ++j0) {
-        float res = 0.0f;
-        for (int p0 = 0; p0 < m0; ++p0) {
-          float A_ip = A_distributed[i0 + p0 * rs_A];
+      for (int j0 = 0; j0 < n0; ++j0) {
+        C_distributed[i0 * cs_C + j0 * rs_C] = 0.0f;
+      }
+    }
+
+    for (int i0 = 0; i0 < m0; ++i0) {
+      for (int p0 = 0; p0 < m0; ++p0) {  // Loop interchange: `p0` loop moved outside `j0`
+        float A_ip = A_distributed[i0 + p0 * rs_A];
+        for (int j0 = i0 + 1; j0 < n0; ++j0) {
           float B_pj = B_distributed[p0 + j0 * rs_B];
-
-          res += A_ip * B_pj;
+          C_distributed[i0 * cs_C + j0 * rs_C] += A_ip * B_pj;
         }
-
-        C_distributed[i0 * cs_C + j0 * rs_C] = res;
       }
     }
   } else {
-    /* STUDENT_TODO: Modify this is you plan to use more
-     than 1 rank to do work in distributed memory context. */
+    /* STUDENT_TODO: Modify this if you plan to use more
+       than 1 rank to do work in distributed memory context. */
   }
 }
+
+
+
 
 // Create the buffers on each node
 void DISTRIBUTED_ALLOCATE_NAME(int m0, int n0, float **A_distributed,

@@ -67,10 +67,9 @@
 #define DISTRIBUTED_FREE_NAME baseline_free
 #endif
 
-//We did 2 levels inner loop unrolling for the most inner loop
+//Loop unrolling with a factor of 4 
 void COMPUTE_NAME(int m0, int n0, float *A_distributed, float *B_distributed,
                   float *C_distributed)
-
 {
   int rid;
   int num_ranks;
@@ -102,27 +101,39 @@ void COMPUTE_NAME(int m0, int n0, float *A_distributed, float *B_distributed,
     for (int i0 = 0; i0 < m0; ++i0) {
       for (int j0 = i0 + 1; j0 < n0; ++j0) {
         float res = 0.0f;
+
         int p0;
-        for (p0 = 0; p0 < m0-1; p0+=2) {
+        for (p0 = 0; p0 < m0 - 3; p0 += 4) {  // Unroll by a factor of 4
           float A_ip1 = A_distributed[i0 + p0 * rs_A];
           float B_pj1 = B_distributed[p0 + j0 * rs_B];
+          res += A_ip1 * B_pj1;
 
-          float A_ip2 = A_distributed[i0 + (p0+1) * rs_A];
-          float B_pj2 = B_distributed[(p0+1) + j0 * rs_B];
+          float A_ip2 = A_distributed[i0 + (p0 + 1) * rs_A];
+          float B_pj2 = B_distributed[(p0 + 1) + j0 * rs_B];
+          res += A_ip2 * B_pj2;
 
-          res += A_ip1 * B_pj1 + A_ip2 * B_pj2;
+          float A_ip3 = A_distributed[i0 + (p0 + 2) * rs_A];
+          float B_pj3 = B_distributed[(p0 + 2) + j0 * rs_B];
+          res += A_ip3 * B_pj3;
+
+          float A_ip4 = A_distributed[i0 + (p0 + 3) * rs_A];
+          float B_pj4 = B_distributed[(p0 + 3) + j0 * rs_B];
+          res += A_ip4 * B_pj4;
         }
-        if (p0 < m0) {
+
+        // Handle any remaining elements if m0 is not a multiple of 4
+        for (; p0 < m0; ++p0) {
           float A_ip = A_distributed[i0 + p0 * rs_A];
           float B_pj = B_distributed[p0 + j0 * rs_B];
           res += A_ip * B_pj;
         }
+
         C_distributed[i0 * cs_C + j0 * rs_C] = res;
       }
     }
   } else {
-    /* STUDENT_TODO: Modify this is you plan to use more
-     than 1 rank to do work in distributed memory context. */
+    /* STUDENT_TODO: Modify this if you plan to use more
+       than 1 rank to do work in distributed memory context. */
   }
 }
 
