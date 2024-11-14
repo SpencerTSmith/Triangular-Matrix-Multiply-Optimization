@@ -2,7 +2,7 @@
 
 ## Useful links
 
-Write up: 
+Write up: https://overleaf.cs.nor.ou.edu/8194698345kbcpkztgbhcx#df46fc
 
 Checkpoint: https://sooners-my.sharepoint.com/:p:/r/personal/teddy_f_diallo-1_ou_edu/_layouts/15/Doc.aspx?sourcedoc=%7BE8ACB1D3-9090-48BC-A95A-E2E6E10B12E7%7D&file=lab_checkpoint_slides.pptx&action=edit&mobileredirect=true
 
