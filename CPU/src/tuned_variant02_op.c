@@ -104,28 +104,36 @@ void COMPUTE_NAME( int m0, int n0,
   MPI_Comm_rank(MPI_COMM_WORLD, &rid);
   MPI_Comm_size(MPI_COMM_WORLD, &num_ranks);
 
-  if(rid == root_rid )
-    {
-      for( int j0 = 0; j0 < n0; ++j0 )
-	{
-	  for( int i0 = 0; i0 < m0; ++i0 )
-	    {
-	      float res = 0.0f;
-	      for( int p0 = 0; p0 < m0; ++p0 )
-		{
-		  if( j0 > i0 )
-		    {
-		      float A_ip = A_distributed[i0 * cs_A + p0 * rs_A];
-		      float B_pj = B_distributed[p0 * cs_B + j0 * rs_B];
-		      
-		      res += A_ip*B_pj;
-		    }
-		}
+  int block_size = 32; // Define block size 
 
-	      C_distributed[i0 * cs_C + j0 * rs_C] = res;
-	    }
-	}
+if (rid == root_rid) {
+  for (int i_block = 0; i_block < m0; i_block += block_size) { // Create block loop
+    for (int i0 = i_block; i0 < i_block + block_size; ++i0) { // Loop through block
+      for (int j0 = i0 + 1; j0 < n0; ++j0) {
+        float res = 0.0f;
+        int p0;
+
+        for (p0 = 0; p0 < m0 - 1; p0 += 2) {
+          float A_ip1 = A_distributed[i0 + p0 * rs_A];
+          float B_pj1 = B_distributed[p0 + j0 * rs_B];
+
+          float A_ip2 = A_distributed[i0 + (p0 + 1) * rs_A];
+          float B_pj2 = B_distributed[(p0 + 1) + j0 * rs_B];
+
+          res += A_ip1 * B_pj1 + A_ip2 * B_pj2;
+        }
+
+        if (p0 < m0) { // Handle remaining element if m0 is odd
+          float A_ip = A_distributed[i0 + p0 * rs_A];
+          float B_pj = B_distributed[p0 + j0 * rs_B];
+          res += A_ip * B_pj;
+        }
+
+        C_distributed[i0 * cs_C + j0 * rs_C] = res;
+      }
     }
+  }
+}
   else
     {
       /* STUDENT_TODO: Modify this is you plan to use more
