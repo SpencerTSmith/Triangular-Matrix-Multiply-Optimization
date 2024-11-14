@@ -9,9 +9,9 @@ OP_BASELINE_FILE="./src/baseline_op.c"    #
 # HOWEVER, CHANGE THESE LINES:             #
 # Replace the filenames with your variants #
 ############################################
-OP_SUBMISSION_VAR01_FILE="./src/tuned_variant01_op.c"
-OP_SUBMISSION_VAR02_FILE="./src/tuned_variant02_op.c"
-OP_SUBMISSION_VAR03_FILE="./src/tuned_variant03_op.c"
+OP_SUBMISSION_VAR01_FILE="./src/tuned_variant03_op.c"
+OP_SUBMISSION_VAR02_FILE="./src/no_branch.c"
+OP_SUBMISSION_VAR03_FILE="./src/row_col_layout.c"
 
 ######################################################
 # You can even change the compiler flags if you want #
