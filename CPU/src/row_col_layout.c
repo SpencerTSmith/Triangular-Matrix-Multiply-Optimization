@@ -225,7 +225,7 @@ void COLLECT_DATA_NAME(int m0, int n0, float *C_distributed, float *C_sequential
     //       of your data which has the potential to give you
     //       a sizeable performance gain.
     // Layout for distributed data
-    // C is column major
+    // C is row major
     int rs_CD = 1;
     int cs_CD = n0;
 
