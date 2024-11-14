@@ -68,8 +68,6 @@
 #endif
 
 
-
-
 void COMPUTE_NAME( int m0, int n0,
 		   float *A_distributed,
 		   float *B_distributed,
@@ -88,15 +86,12 @@ void COMPUTE_NAME( int m0, int n0,
     Using the convention that row_stride (rs) is the step size you take going down a row,
     column stride (cs) is the step size going down the column.
   */
-  // A is column major
   int rs_A = m0;
   int cs_A = 1;
 
-  // B is column major
   int rs_B = m0;
   int cs_B = 1;
 
-  // C is column major
   int rs_C = m0;
   int cs_C = 1;
   
@@ -184,11 +179,9 @@ void DISTRIBUTE_DATA_NAME( int m0, int n0,
   int root_rid = 0;
 
   // Layout for sequential data
-  // A is column major
   int rs_AS = m0;
   int cs_AS = 1;
 
-  // B is column major
   int rs_BS = m0;
   int cs_BS = 1;
 
@@ -196,11 +189,9 @@ void DISTRIBUTE_DATA_NAME( int m0, int n0,
   //       of your data which has the potential to give you
   //       a sizeable performance gain.
   // Layout for distributed data
-  // A is column major
   int rs_AD = m0;
   int cs_AD = 1;
 
-  // B is column major
   int rs_BD = m0;
   int cs_BD = 1;
 
@@ -244,8 +235,6 @@ void DISTRIBUTE_DATA_NAME( int m0, int n0,
   
 }
 
-
-
 void COLLECT_DATA_NAME( int m0, int n0,
 			float *C_distributed,
 			float *C_sequential )
@@ -257,8 +246,6 @@ void COLLECT_DATA_NAME( int m0, int n0,
   int root_rid = 0;
 
   // Layout for sequential data
-  // A is column major
-  // C is column major
   int rs_CS = m0;
   int cs_CS = 1;
 
@@ -266,7 +253,6 @@ void COLLECT_DATA_NAME( int m0, int n0,
   //       of your data which has the potential to give you
   //       a sizeable performance gain.
   // Layout for distributed data
-  // C is column major
   int rs_CD = m0;
   int cs_CD = 1;
 

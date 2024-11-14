@@ -1,346 +1,174 @@
-/*
-  This is the baseline implementation of a Triangular Matrix Times Matrix
-  Multiplication  (TRMM)
-
-  C = AB, where
-  A is an MxM lower triangular (A_{i,p} = 0 if p > i) Matrix. It is indexed by i0 and p0
-  B is an MxN matrix. It is indexed by p0 and j0.
-  C is an MxN matrix. It is indexed by i0 and j0.
-  
-  
-  Parameters:
-
-  m0 > 0: dimension
-  n0 > 0: dimension
-
-
-
-  float* A_sequential: pointer to original A matrix data
-  float* A_distributed: pointer to the input data that you have distributed across
-  the system
-
-  float* C_sequential:  pointer to original output data
-  float* C_distributed: pointer to the output data that you have distributed across
-  the system
-
-  float* B_sequential:  pointer to original weights data
-  float* B_distributed: pointer to the weights data that you have distributed across
-  the system
-
-  Functions:
-
-  DISTRIBUTED_ALLOCATE_NAME(...): Allocate the distributed buffers.
-  DISTRIBUTE_DATA_NAME(...): takes the sequential data and distributes it across the system.
-  COMPUTE_NAME(...): Performs the stencil computation.
-  COLLECT_DATA_NAME(...): Collect the distributed output and combine it back to the sequential
-  one for testing.
-  DISTRIBUTED_FREE_NAME(...): Free the distributed buffers that were allocated
-
-
-  - richard.m.veras@ou.edu
-
-*/
-
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #ifndef COMPUTE_NAME
-#define COMPUTE_NAME baseline
+#define COMPUTE_NAME mpi_trmm_compute
 #endif
 
 #ifndef DISTRIBUTE_DATA_NAME
-#define DISTRIBUTE_DATA_NAME baseline_distribute
-#endif
-
-#ifndef COLLECT_DATA_NAME
-#define COLLECT_DATA_NAME baseline_collect
+#define DISTRIBUTE_DATA_NAME mpi_trmm_distribute
 #endif  
 
+#ifndef COLLECT_DATA_NAME
+#define COLLECT_DATA_NAME mpi_trmm_collect
+#endif  
 
 #ifndef DISTRIBUTED_ALLOCATE_NAME
-#define DISTRIBUTED_ALLOCATE_NAME baseline_allocate
+#define DISTRIBUTED_ALLOCATE_NAME mpi_trmm_allocate
 #endif
-
 
 #ifndef DISTRIBUTED_FREE_NAME
-#define DISTRIBUTED_FREE_NAME baseline_free
+#define DISTRIBUTED_FREE_NAME mpi_trmm_free
 #endif
 
-
-
-
-void COMPUTE_NAME( int m0, int n0,
-		   float *A_distributed,
-		   float *B_distributed,
-		   float *C_distributed )
-
-{
-  int rid;
-  int num_ranks;
-  int tag = 0;
-  MPI_Status  status;
-  int root_rid = 0;
-
-
-  /*
-
-    Using the convention that row_stride (rs) is the step size you take going down a row,
-    column stride (cs) is the step size going down the column.
-  */
-  // A is column major
-  int rs_A = m0;
-  int cs_A = 1;
-
-  // B is column major
-  int rs_B = m0;
-  int cs_B = 1;
-
-  // C is column major
-  int rs_C = m0;
-  int cs_C = 1;
-  
-
-  MPI_Comm_rank(MPI_COMM_WORLD, &rid);
-  MPI_Comm_size(MPI_COMM_WORLD, &num_ranks);
-
-  if(rid == root_rid )
-    {
-      for( int j0 = 0; j0 < n0; ++j0 )
-	{
-	  for( int i0 = 0; i0 < m0; ++i0 )
-	    {
-	      float res = 0.0f;
-	      for( int p0 = 0; p0 < m0; ++p0 )
-		{
-		  if( j0 > i0 )
-		    {
-		      float A_ip = A_distributed[i0 * cs_A + p0 * rs_A];
-		      float B_pj = B_distributed[p0 * cs_B + j0 * rs_B];
-		      
-		      res += A_ip*B_pj;
-		    }
-		}
-
-	      C_distributed[i0 * cs_C + j0 * rs_C] = res;
-	    }
-	}
-    }
-  else
-    {
-      /* STUDENT_TODO: Modify this is you plan to use more
-       than 1 rank to do work in distributed memory context. */
+void compute_counts_displs(int m0, int num_ranks, int *counts, int *displs) {
+    int rows_per_rank = m0 / num_ranks;
+    int remainder = m0 % num_ranks;
+    int offset = 0;
+    for (int i = 0; i < num_ranks; i++) {
+        counts[i] = rows_per_rank + (i < remainder ? 1 : 0);
+        displs[i] = offset;
+        offset += counts[i];
     }
 }
 
+void COMPUTE_NAME(int m0, int n0,
+                  float *A_distributed,
+                  float *B_distributed,
+                  float *C_distributed)
+{
+    int rid, num_ranks;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rid);
+    MPI_Comm_size(MPI_COMM_WORLD, &num_ranks);
+
+    // Compute counts and displacements
+    int *counts = (int *)malloc(num_ranks * sizeof(int));
+    int *displs = (int *)malloc(num_ranks * sizeof(int));
+    compute_counts_displs(m0, num_ranks, counts, displs);
+
+    int local_m = counts[rid];
+    int start_row = displs[rid];
+
+    // Matrix strides (assuming column-major order)
+    int rs_A = m0;
+    int cs_A = 1;
+
+    int rs_B = m0;
+    int cs_B = 1;
+
+    int rs_C_local = local_m;
+    int cs_C_local = 1;
+
+    for (int i0_local = 0; i0_local < local_m; ++i0_local)
+    {
+        int i0 = start_row + i0_local;
+        for (int j0 = 0; j0 < n0; ++j0)
+        {
+            float res = 0.0f;
+            for (int p0 = 0; p0 <= i0; ++p0)
+            {
+                float A_ip = A_distributed[i0 * cs_A + p0 * rs_A];
+                float B_pj = B_distributed[p0 * cs_B + j0 * rs_B];
+                res += A_ip * B_pj;
+            }
+            C_distributed[i0_local * cs_C_local + j0 * rs_C_local] = res;
+        }
+    }
+
+    free(counts);
+    free(displs);
+}
 
 // Create the buffers on each node
-void DISTRIBUTED_ALLOCATE_NAME( int m0, int n0,
-				float **A_distributed,
-				float **B_distributed,
-				float **C_distributed )
+void DISTRIBUTED_ALLOCATE_NAME(int m0, int n0,
+                               float **A_distributed,
+                               float **B_distributed,
+                               float **C_distributed)
 {
-  int rid;
-  int num_ranks;
-  int tag = 0;
-  MPI_Status  status;
-  int root_rid = 0;
+    int rid, num_ranks;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rid);
+    MPI_Comm_size(MPI_COMM_WORLD, &num_ranks);
 
-  MPI_Comm_rank(MPI_COMM_WORLD, &rid);
-  MPI_Comm_size(MPI_COMM_WORLD, &num_ranks);
+    // Compute counts and displacements
+    int *counts = (int *)malloc(num_ranks * sizeof(int));
+    int *displs = (int *)malloc(num_ranks * sizeof(int));
+    compute_counts_displs(m0, num_ranks, counts, displs);
 
-  if(rid == root_rid )
-    {
+    int local_m = counts[rid];
 
-      *A_distributed=(float *)malloc(sizeof(float)*m0*m0);
-      *C_distributed=(float *)malloc(sizeof(float)*m0*n0);
-      *B_distributed=(float *)malloc(sizeof(float)*m0*n0);
-    }
-  else
-    {
-      /*
-	STUDENT_TODO: Modify this is you plan to use more
-	than 1 rank to do work in distributed memory context.
+    // All ranks allocate their portion of C
+    *C_distributed = (float *)malloc(sizeof(float) * local_m * n0);
 
-	Note: In the original configuration only rank with
-	rid == 0 has all of its buffers allocated.
-      */
+    // All ranks allocate full A and B (since we will broadcast them)
+    *A_distributed = (float *)malloc(sizeof(float) * m0 * m0);
+    *B_distributed = (float *)malloc(sizeof(float) * m0 * n0);
 
-    }
+    free(counts);
+    free(displs);
 }
 
-
-void DISTRIBUTE_DATA_NAME( int m0, int n0,
-			   float *A_sequential,
-			   float *B_sequential,
-			   float *A_distributed,
-			   float *B_distributed )
+void DISTRIBUTE_DATA_NAME(int m0, int n0,
+                          float *A_sequential,
+                          float *B_sequential,
+                          float *A_distributed,
+                          float *B_distributed)
 {
+    int rid;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rid);
 
-  int rid;
-  int num_ranks;
-  int tag = 0;
-  MPI_Status  status;
-  int root_rid = 0;
-
-  // Layout for sequential data
-  // A is column major
-  int rs_AS = m0;
-  int cs_AS = 1;
-
-  // B is column major
-  int rs_BS = m0;
-  int cs_BS = 1;
-
-  // Note: Here is a perfect opportunity to change the layout
-  //       of your data which has the potential to give you
-  //       a sizeable performance gain.
-  // Layout for distributed data
-  // A is column major
-  int rs_AD = m0;
-  int cs_AD = 1;
-
-  // B is column major
-  int rs_BD = m0;
-  int cs_BD = 1;
-
-  
-  MPI_Comm_rank(MPI_COMM_WORLD, &rid);
-  MPI_Comm_size(MPI_COMM_WORLD, &num_ranks);
-
-  if(rid == root_rid )
+    if (rid == 0)
     {
-      // Distribute the inputs
-      for( int i0 = 0; i0 < m0; ++i0 )
-	for( int p0 = 0; p0 < m0; ++p0 )
-	{
-	  A_distributed[i0 * cs_AD + p0 * rs_AD] =
-	    A_sequential[i0 * cs_AS + p0 * rs_AS];
-	}
-  
-      // Distribute the weights
-      for( int p0 = 0; p0 < m0; ++p0 )
-	for( int j0 = 0; j0 < n0; ++j0 )
-	{
-	  B_distributed[p0 * cs_BD + j0 * rs_BD] =
-	    B_sequential[p0 * cs_BS + j0 * rs_BS];
-	}
+        // Copy sequential data into distributed buffers on root
+        memcpy(A_distributed, A_sequential, sizeof(float) * m0 * m0);
+        memcpy(B_distributed, B_sequential, sizeof(float) * m0 * n0);
     }
-  else
-    {
-      /*
-	STUDENT_TODO: Modify this is you plan to use more
-	than 1 rank to do work in distributed memory context.
 
-	Note: In the original configuration only rank with
-	rid == 0 has all of the necessary data for the computation.
-	All other ranks have garbage in their data. This is where
-	rank with rid == 0 needs to SEND data to the other nodes
-	to RECEIVE the data, or use COLLECTIVE COMMUNICATION to
-	distribute the data.
-      */
-
-    }
-  
+    // Broadcast A and B to all ranks
+    MPI_Bcast(A_distributed, m0 * m0, MPI_FLOAT, 0, MPI_COMM_WORLD);
+    MPI_Bcast(B_distributed, m0 * n0, MPI_FLOAT, 0, MPI_COMM_WORLD);
 }
 
-
-
-void COLLECT_DATA_NAME( int m0, int n0,
-			float *C_distributed,
-			float *C_sequential )
+void COLLECT_DATA_NAME(int m0, int n0,
+                       float *C_distributed,
+                       float *C_sequential)
 {
-  int rid;
-  int num_ranks;
-  int tag = 0;
-  MPI_Status  status;
-  int root_rid = 0;
+    int rid, num_ranks;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rid);
+    MPI_Comm_size(MPI_COMM_WORLD, &num_ranks);
 
-  // Layout for sequential data
-  // A is column major
-  // C is column major
-  int rs_CS = m0;
-  int cs_CS = 1;
+    // Compute counts and displacements
+    int *counts = (int *)malloc(num_ranks * sizeof(int));
+    int *displs = (int *)malloc(num_ranks * sizeof(int));
+    compute_counts_displs(m0, num_ranks, counts, displs);
 
-  // Note: Here is a perfect opportunity to change the layout
-  //       of your data which has the potential to give you
-  //       a sizeable performance gain.
-  // Layout for distributed data
-  // C is column major
-  int rs_CD = m0;
-  int cs_CD = 1;
-
-  
-  MPI_Comm_rank(MPI_COMM_WORLD, &rid);
-  MPI_Comm_size(MPI_COMM_WORLD, &num_ranks);
-
-  if(rid == root_rid )
+    // Adjust counts and displacements for gathering C
+    int *recvcounts = (int *)malloc(num_ranks * sizeof(int));
+    int *displsC = (int *)malloc(num_ranks * sizeof(int));
+    for (int i = 0; i < num_ranks; i++)
     {
-
-      // Collect the output
-      for( int i0 = 0; i0 < m0; ++i0 )
-	for( int j0 = 0; j0 < n0; ++j0 )
-	C_sequential[i0 * cs_CS + j0 * rs_CS] =
-	  C_distributed[i0 * cs_CD + j0 * rs_CD];
+        recvcounts[i] = counts[i] * n0;
+        displsC[i] = displs[i] * n0;
     }
-  else
-    {
-      /*
-	STUDENT_TODO: Modify this is you plan to use more
-	than 1 rank to do work in distributed memory context.
 
-	Note: In the original configuration only rank with
-	rid == 0 performs the computation and copies the
-	"distributed" data to the "sequential" buffer that
-	is checked by the verifier on rank rid == 0. If the
-	other ranks contributed to the computation, then
-	rank rid == 0 needs to RECEIVE the contributions that
-	the other ranks SEND, or use COLLECTIVE COMMUNICATIONS
-	for the same result.
-      */
+    // Gather the computed parts of C from all ranks
+    MPI_Gatherv(C_distributed, counts[rid] * n0, MPI_FLOAT,
+                C_sequential, recvcounts, displsC, MPI_FLOAT,
+                0, MPI_COMM_WORLD);
 
-    }
-  
+    free(counts);
+    free(displs);
+    free(recvcounts);
+    free(displsC);
 }
 
-
-
-
-void DISTRIBUTED_FREE_NAME( int m0, int n0,
-			    float *A_distributed,
-			    float *B_distributed,
-			    float *C_distributed )
+void DISTRIBUTED_FREE_NAME(int m0, int n0,
+                           float *A_distributed,
+                           float *B_distributed,
+                           float *C_distributed)
 {
-  int rid;
-  int num_ranks;
-  int tag = 0;
-  MPI_Status  status;
-  int root_rid = 0;
-
-  MPI_Comm_rank(MPI_COMM_WORLD, &rid);
-  MPI_Comm_size(MPI_COMM_WORLD, &num_ranks);
-
-  if(rid == root_rid )
-    {
-
-      free(A_distributed);
-      free(B_distributed);
-      free(C_distributed);
-    }
-  else
-    {
-      /*
-	STUDENT_TODO: Modify this is you plan to use more
-	than 1 rank to do work in distributed memory context.
-
-	Note: In the original configuration only rank with
-	rid == 0 allocates the "distributed" buffers for itself.
-	If the other ranks were modified to allocate their own
-	buffers then they need to be freed at the end.
-      */
-
-    }
-
+    free(A_distributed);
+    free(B_distributed);
+    free(C_distributed);
 }
-
-
