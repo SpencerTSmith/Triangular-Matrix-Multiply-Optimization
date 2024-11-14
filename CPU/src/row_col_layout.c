@@ -91,7 +91,7 @@ void COMPUTE_NAME(int m0, int n0, float *A_distributed, float *B_distributed, fl
 
     // C is row major
     int rs_C = 1;
-    int cs_C = m0;
+    int cs_C = n0;
 
     MPI_Comm_rank(MPI_COMM_WORLD, &rid);
     MPI_Comm_size(MPI_COMM_WORLD, &num_ranks);
@@ -131,8 +131,9 @@ void DISTRIBUTED_ALLOCATE_NAME(int m0, int n0, float **A_distributed, float **B_
     if (rid == root_rid) {
 
         *A_distributed = (float *)malloc(sizeof(float) * m0 * m0);
-        *C_distributed = (float *)malloc(sizeof(float) * m0 * n0);
         *B_distributed = (float *)malloc(sizeof(float) * m0 * n0);
+        // just so every thing is initalized to 0
+        *C_distributed = calloc(m0 * n0, sizeof(float));
     } else {
         /*
           STUDENT_TODO: Modify this is you plan to use more
@@ -223,12 +224,10 @@ void COLLECT_DATA_NAME(int m0, int n0, float *C_distributed, float *C_sequential
     // Note: Here is a perfect opportunity to change the layout
     //       of your data which has the potential to give you
     //       a sizeable performance gain.
-
     // Layout for distributed data
-    //
     // C is column major
     int rs_CD = 1;
-    int cs_CD = m0;
+    int cs_CD = n0;
 
     MPI_Comm_rank(MPI_COMM_WORLD, &rid);
     MPI_Comm_size(MPI_COMM_WORLD, &num_ranks);

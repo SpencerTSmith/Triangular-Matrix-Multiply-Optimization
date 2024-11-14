@@ -18,5 +18,5 @@ OP_SUBMISSION_VAR03_FILE="./src/row_col_layout.c"
 ######################################################
 CC=mpicc
 # CFLAGS="-std=c99 -O2"
-CFLAGS="-std=c99 -O2 -mavx2 -mfma"
+CFLAGS="-g -std=c99 -O2 -mavx2 -mfma"
 
