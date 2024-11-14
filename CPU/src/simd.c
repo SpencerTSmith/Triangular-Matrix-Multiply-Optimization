@@ -41,6 +41,7 @@
 
 */
 
+#include <immintrin.h>
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -64,6 +65,8 @@
 #ifndef DISTRIBUTED_FREE_NAME
 #define DISTRIBUTED_FREE_NAME baseline_free
 #endif
+
+#define AVX_FLOAT_N 4
 
 void COMPUTE_NAME(int m0, int n0, float *A_distributed, float *B_distributed, float *C_distributed)
 
@@ -89,9 +92,9 @@ void COMPUTE_NAME(int m0, int n0, float *A_distributed, float *B_distributed, fl
     int rs_B = m0;
     int cs_B = 1;
 
-    // C is column major
-    int rs_C = m0;
-    int cs_C = 1;
+    // C is row major
+    int rs_C = 1;
+    int cs_C = n0;
 
     MPI_Comm_rank(MPI_COMM_WORLD, &rid);
     MPI_Comm_size(MPI_COMM_WORLD, &num_ranks);
@@ -99,15 +102,21 @@ void COMPUTE_NAME(int m0, int n0, float *A_distributed, float *B_distributed, fl
     if (rid == root_rid) {
         for (int i0 = 0; i0 < m0; ++i0) {
             for (int j0 = i0 + 1; j0 < n0; ++j0) {
-                float res = 0.0f;
-                for (int p0 = 0; p0 < m0; ++p0) {
-                    float A_ip = A_distributed[i0 * cs_A + p0];
-                    float B_pj = B_distributed[j0 * rs_B + p0];
+                __m128 res = _mm_setzero_ps();
+                for (int p0 = 0; p0 < m0; p0 += AVX_FLOAT_N) {
+                    __m128 A_row_reg = _mm_loadu_ps(&A_distributed[i0 * cs_A + p0]);
+                    __m128 B_col_reg = _mm_loadu_ps(&B_distributed[j0 * rs_B + p0]);
 
-                    res += A_ip * B_pj;
+                    res = _mm_fmadd_ps(A_row_reg, B_col_reg, res);
                 }
 
-                C_distributed[i0 + j0 * rs_C] = res;
+                // adds first 2 horizontals and second 2 horizontals
+                res = _mm_hadd_ps(res, res);
+                // add those together
+                res = _mm_hadd_ps(res, res);
+
+                // elements are all the correct sum but just need one
+                C_distributed[i0 * cs_C + j0] = _mm_cvtss_f32(res);
             }
         }
     } else {
@@ -131,8 +140,9 @@ void DISTRIBUTED_ALLOCATE_NAME(int m0, int n0, float **A_distributed, float **B_
     if (rid == root_rid) {
 
         *A_distributed = (float *)malloc(sizeof(float) * m0 * m0);
-        *C_distributed = (float *)malloc(sizeof(float) * m0 * n0);
         *B_distributed = (float *)malloc(sizeof(float) * m0 * n0);
+        // just so every thing is initalized to 0
+        *C_distributed = calloc(m0 * n0, sizeof(float));
     } else {
         /*
           STUDENT_TODO: Modify this is you plan to use more
@@ -224,9 +234,9 @@ void COLLECT_DATA_NAME(int m0, int n0, float *C_distributed, float *C_sequential
     //       of your data which has the potential to give you
     //       a sizeable performance gain.
     // Layout for distributed data
-    // C is column major
-    int rs_CD = m0;
-    int cs_CD = 1;
+    // C is row major
+    int rs_CD = 1;
+    int cs_CD = n0;
 
     MPI_Comm_rank(MPI_COMM_WORLD, &rid);
     MPI_Comm_size(MPI_COMM_WORLD, &num_ranks);
