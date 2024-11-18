@@ -99,26 +99,38 @@ void COMPUTE_NAME(int m0, int n0, float *A_distributed, float *B_distributed,
   MPI_Comm_size(MPI_COMM_WORLD, &num_ranks);
 
 if (rid == root_rid) {
-  int block_size = 32; // Define block size 
+  int block_size = 16; // Define block size 
+  
+  for (int i0 = 0; i0 < m0; ++i0) {
+      for (int j0 = 0; j0 < n0; ++j0) {
+        C_distributed[i0 * cs_C + j0 * rs_C] = 0.0f;
+      }
+    }
 
-  for (int i_block = 0; i_block < m0; i_block += block_size) { // Create block loop
-    for (int i0 = i_block; i0 < i_block + block_size; ++i0) { // Loop through block
-      for (int j0 = i0 + 1; j0 < n0; ++j0) {
-        float res = 0.0f;
-        int p0;
+     for (int i_block = 0; i_block < m0; i_block += block_size) {
+      for (int j_block = i_block + 1; j_block < n0; j_block += block_size) {
+        for (int p_block = 0; p_block < m0; p_block += block_size) {
 
-        for (p0 = 0; p0 < m0; p0++) {
-          float A = A_distributed[i0 + p0 * rs_A];
-          float B = B_distributed[p0 + j0 * rs_B];
-
-          res += A * B;
+          // Inner loops for elements within each block
+          for (int i0 = i_block; i0 < i_block + block_size && i0 < m0; ++i0) {
+            for (int j0 = j_block; j0 < j_block + block_size && j0 < n0; ++j0) {
+              if (j0 > i0) {  // Maintain triangular matrix constraint
+                float res = 0.0f;
+                for (int p0 = p_block; p0 < p_block + block_size && p0 < m0; ++p0) {
+                  float A_ip = A_distributed[i0 + p0 * rs_A];
+                  float B_pj = B_distributed[p0 + j0 * rs_B];
+                  res += A_ip * B_pj;
+                }
+                C_distributed[i0 * cs_C + j0 * rs_C] += res;
+              }
+            }
+          }
         }
-
-        C_distributed[i0 * cs_C + j0 * rs_C] = res;
       }
     }
   }
-} else {
+
+ else {
   /* Modify here for distributed memory context if needed */
 }
 }
