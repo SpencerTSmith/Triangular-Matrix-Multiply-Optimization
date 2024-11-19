@@ -9,7 +9,7 @@ OP_BASELINE_FILE="./src/baseline_op.c"    #
 # HOWEVER, CHANGE THESE LINES:             #
 # Replace the filenames with your variants #
 ############################################
-OP_SUBMISSION_VAR01_FILE="./src/no_branch.c"
+OP_SUBMISSION_VAR01_FILE="./src/8_simd.c"
 OP_SUBMISSION_VAR02_FILE="./src/row_col_layout.c"
 OP_SUBMISSION_VAR03_FILE="./src/simd.c"
 
