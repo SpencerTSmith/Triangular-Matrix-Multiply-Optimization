@@ -99,9 +99,8 @@ void COMPUTE_NAME(int m0, int n0, float *A_distributed, float *B_distributed,
   MPI_Comm_size(MPI_COMM_WORLD, &num_ranks);
 
 if (rid == root_rid) {
-if (rid == root_rid) {
-  int block_size = 16;      // Outer block size
-  int sub_block_size = 4;   // Inner block size for 2D blocking
+  int block_size = 32;      // Outer block size
+  int sub_block_size = 16;   // Inner block size for 2D blocking
 
   for (int i0 = 0; i0 < m0; ++i0) {
     for (int j0 = 0; j0 < n0; ++j0) {
@@ -138,7 +137,6 @@ if (rid == root_rid) {
       }
     }
   }
-}
 }
  else {
   /* Modify here for distributed memory context if needed */

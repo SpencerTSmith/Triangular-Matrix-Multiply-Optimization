@@ -104,28 +104,72 @@ void COMPUTE_NAME( int m0, int n0,
   MPI_Comm_rank(MPI_COMM_WORLD, &rid);
   MPI_Comm_size(MPI_COMM_WORLD, &num_ranks);
 
-  if(rid == root_rid )
-    {
-      for( int j0 = 0; j0 < n0; ++j0 )
-	{
-	  for( int i0 = 0; i0 < m0; ++i0 )
-	    {
-	      float res = 0.0f;
-	      for( int p0 = 0; p0 < m0; ++p0 )
-		{
-		  if( j0 > i0 )
-		    {
-		      float A_ip = A_distributed[i0 * cs_A + p0 * rs_A];
-		      float B_pj = B_distributed[p0 * cs_B + j0 * rs_B];
-		      
-		      res += A_ip*B_pj;
-		    }
-		}
+  if (rid == root_rid) {
+  int block_size = 32;      // Outer block size
+  int sub_block_size = 16;  // Inner block size for 2D blocking
 
-	      C_distributed[i0 * cs_C + j0 * rs_C] = res;
-	    }
-	}
+  // Initialize C_distributed matrix to 0
+  for (int i0 = 0; i0 < m0; ++i0) {
+    for (int j0 = 0; j0 < n0; ++j0) {
+      C_distributed[i0 * cs_C + j0 * rs_C] = 0.0f;
     }
+  }
+
+  // Process blocks
+  #pragma omp parallel for collapse(2)
+  for (int i_block = 0; i_block < m0; i_block += block_size) {
+    for (int j_block = i_block + 1; j_block < n0; j_block += block_size) {
+      for (int p_block = 0; p_block < m0; p_block += block_size) {
+
+        // 2D sub-blocks within each outer block
+        for (int ii_block = i_block; ii_block < i_block + block_size && ii_block < m0; ii_block += sub_block_size) {
+          for (int jj_block = j_block; jj_block < j_block + block_size && jj_block < n0; jj_block += sub_block_size) {
+            for (int pp_block = p_block; pp_block < p_block + block_size && pp_block < m0; pp_block += sub_block_size) {
+
+              // Inner loops for elements within each sub-block
+              for (int i0 = ii_block; i0 < ii_block + sub_block_size && i0 < m0; ++i0) {
+                for (int j0 = jj_block; j0 < jj_block + sub_block_size && j0 < n0; ++j0) {
+                  if (j0 > i0) {  // Maintain triangular matrix constraint
+                    float res = 0.0f;
+
+                    // Unrolling the p0 loop by a factor of 4
+                    int p0 = pp_block;
+                    for (; p0 <= pp_block + sub_block_size - 4 && p0 < m0; p0 += 4) {
+                      float A_ip1 = A_distributed[i0 + (p0 + 0) * rs_A];
+                      float B_pj1 = B_distributed[(p0 + 0) + j0 * rs_B];
+                      res += A_ip1 * B_pj1;
+
+                      float A_ip2 = A_distributed[i0 + (p0 + 1) * rs_A];
+                      float B_pj2 = B_distributed[(p0 + 1) + j0 * rs_B];
+                      res += A_ip2 * B_pj2;
+
+                      float A_ip3 = A_distributed[i0 + (p0 + 2) * rs_A];
+                      float B_pj3 = B_distributed[(p0 + 2) + j0 * rs_B];
+                      res += A_ip3 * B_pj3;
+
+                      float A_ip4 = A_distributed[i0 + (p0 + 3) * rs_A];
+                      float B_pj4 = B_distributed[(p0 + 3) + j0 * rs_B];
+                      res += A_ip4 * B_pj4;
+                    }
+
+                    // Handle remaining iterations
+                    for (; p0 < pp_block + sub_block_size && p0 < m0; ++p0) {
+                      float A_ip = A_distributed[i0 + p0 * rs_A];
+                      float B_pj = B_distributed[p0 + j0 * rs_B];
+                      res += A_ip * B_pj;
+                    }
+
+                    C_distributed[i0 * cs_C + j0 * rs_C] += res;
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
   else
     {
       /* STUDENT_TODO: Modify this is you plan to use more
