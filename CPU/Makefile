@@ -25,8 +25,8 @@
 # higher performance numbers)
 MIN=64
 #MAX=8192 # good large number
-MAX=512 # medium size
-# MAX=1024 # small devel size
+# MAX=512 # medium size
+MAX=1024 # small devel size
 STEP=64
 
 
