@@ -67,25 +67,25 @@ build-bench-schooner:
 all-local: run-verifier-local run-bench-local
 
 run-verifier-local: build-verifier-local
-	mpiexec -n ${NUMRANKS} ./run_test_op_var01.x  ${MIN} ${MAX} ${STEP} 1 1 result_verification_local_op_var01_k${KMEDIUM}.csv
-	cat result_verification_local_op_var01_k${KMEDIUM}.csv
-	mpiexec -n ${NUMRANKS} ./run_test_op_var02.x  ${MIN} ${MAX} ${STEP} 1 1 result_verification_local_op_var02_k${KMEDIUM}.csv
-	cat result_verification_local_op_var02_k${KMEDIUM}.csv
-	mpiexec -n ${NUMRANKS} ./run_test_op_var03.x  ${MIN} ${MAX} ${STEP} 1 1 result_verification_local_op_var03_k${KMEDIUM}.csv
-	cat result_verification_local_op_var03_k${KMEDIUM}.csv
-	echo "Number of FAILS: `grep "FAIL" result_verification_local_op_*.csv|wc -l`"
+	mpiexec -n ${NUMRANKS} ./run_test_op_var01.x  ${MIN} ${MAX} ${STEP} 1 1 ./data/result_verification_local_op_var01_k${KMEDIUM}.csv
+	cat ./data/result_verification_local_op_var01_k${KMEDIUM}.csv
+	mpiexec -n ${NUMRANKS} ./run_test_op_var02.x  ${MIN} ${MAX} ${STEP} 1 1 ./data/result_verification_local_op_var02_k${KMEDIUM}.csv
+	cat ./data/result_verification_local_op_var02_k${KMEDIUM}.csv
+	mpiexec -n ${NUMRANKS} ./run_test_op_var03.x  ${MIN} ${MAX} ${STEP} 1 1 ./data/result_verification_local_op_var03_k${KMEDIUM}.csv
+	cat ./data/result_verification_local_op_var03_k${KMEDIUM}.csv
+	echo "Number of FAILS: `grep "FAIL" ./data/result_verification_local_op_*.csv|wc -l`"
 
 
 run-bench-local: build-bench-local
-	mpiexec -n ${NUMRANKS} ./run_bench_op_var01.x ${MIN} ${MAX} ${STEP} 1 1  result_bench_local_op_var01_k${KMEDIUM}.csv
-	cat result_bench_local_op_var01_k${KMEDIUM}.csv
-	mpiexec -n ${NUMRANKS} ./run_bench_op_var02.x ${MIN} ${MAX} ${STEP} 1 1  result_bench_local_op_var02_k${KMEDIUM}.csv
-	cat result_bench_local_op_var02_k${KMEDIUM}.csv
-	mpiexec -n ${NUMRANKS} ./run_bench_op_var03.x ${MIN} ${MAX} ${STEP} 1 1  result_bench_local_op_var03_k${KMEDIUM}.csv
-	cat result_bench_local_op_var03_k${KMEDIUM}.csv
+	mpiexec -n ${NUMRANKS} ./run_bench_op_var01.x ${MIN} ${MAX} ${STEP} 1 1  ./data/result_bench_local_op_var01_k${KMEDIUM}.csv
+	cat ./data/result_bench_local_op_var01_k${KMEDIUM}.csv
+	mpiexec -n ${NUMRANKS} ./run_bench_op_var02.x ${MIN} ${MAX} ${STEP} 1 1  ./data/result_bench_local_op_var02_k${KMEDIUM}.csv
+	cat ./data/result_bench_local_op_var02_k${KMEDIUM}.csv
+	mpiexec -n ${NUMRANKS} ./run_bench_op_var03.x ${MIN} ${MAX} ${STEP} 1 1  ./data/result_bench_local_op_var03_k${KMEDIUM}.csv
+	cat ./data/result_bench_local_op_var03_k${KMEDIUM}.csv
 
 
-	./plotter_multi.py "Local Results of Stencil Computation" "PLOT_local.png" "result_bench_local_op_var01_k${KMEDIUM}.csv" "result_bench_local_op_var02_k${KMEDIUM}.csv" "result_bench_local_op_var03_k${KMEDIUM}.csv"
+	./data/plotter_multi.py "Local Results of Stencil Computation" "PLOT_local.png" "./data/result_bench_local_op_var01_k${KMEDIUM}.csv" "./data/result_bench_local_op_var02_k${KMEDIUM}.csv" "./data/result_bench_local_op_var03_k${KMEDIUM}.csv"
 
 build-verifier-local:
 	./build_test_op.sh

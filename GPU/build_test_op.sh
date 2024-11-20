@@ -32,11 +32,10 @@ DISTRIBUTED_FREE_NAME_TST="test_free"
 DISTRIBUTE_DATA_NAME_TST="test_distribute"
 COLLECT_DATA_NAME_TST="test_collect"
 
-TEST_RIG="timer_op.c"
+TEST_RIG="./src/verify_op.c"
 
-# Build the timer
-# NOTE: need gnu99/gnu11 to get the POSIX compliance for timing
-${CC_HOST} -std=gnu99 -O2 -c \
+# Build the verifier code
+${CC_HOST} ${CC_HOST_CFLAGS} -c \
     -DCOMPUTE_NAME_REF=${COMPUTE_NAME_REF} \
     -DDISTRIBUTED_ALLOCATE_NAME_REF=${DISTRIBUTED_ALLOCATE_NAME_REF} \
     -DDISTRIBUTED_FREE_NAME_REF=${DISTRIBUTED_FREE_NAME_REF} \
@@ -47,10 +46,18 @@ ${CC_HOST} -std=gnu99 -O2 -c \
     -DDISTRIBUTED_FREE_NAME_TST=${DISTRIBUTED_FREE_NAME_TST} \
     -DDISTRIBUTE_DATA_NAME_TST=${DISTRIBUTE_DATA_NAME_TST} \
     -DCOLLECT_DATA_NAME_TST=${COLLECT_DATA_NAME_TST} \
-    ${TEST_RIG} -static -fPIC -o ${TEST_RIG}.o
+    ${TEST_RIG} -o ${TEST_RIG}.o
 
+# Build the reference baseline
+${CC_HOST} ${CC_HOST_CFLAGS} -c \
+    -DCOMPUTE_NAME=${COMPUTE_NAME_REF} \
+    -DDISTRIBUTE_DATA_NAME=${DISTRIBUTE_DATA_NAME_REF} \
+    -DCOLLECT_DATA_NAME=${COLLECT_DATA_NAME_REF} \
+    -DDISTRIBUTED_ALLOCATE_NAME=${DISTRIBUTED_ALLOCATE_NAME_REF}\
+    -DDISTRIBUTED_FREE_NAME=${DISTRIBUTED_FREE_NAME_REF}\
+    ${OP_BASELINE_FILE} -o ${OP_BASELINE_FILE}.ref.o
 
-# build the variants
+# Build the variants
 ${CC_HOST} ${CC_HOST_CFLAGS} -c \
     -DCOMPUTE_NAME=${COMPUTE_NAME_TST} \
     -DDISTRIBUTE_DATA_NAME=${DISTRIBUTE_DATA_NAME_TST} \
@@ -59,7 +66,7 @@ ${CC_HOST} ${CC_HOST_CFLAGS} -c \
     -DDISTRIBUTED_FREE_NAME=${DISTRIBUTED_FREE_NAME_TST}\
     ${OP_SUBMISSION_VAR01_FILE} -o ${OP_SUBMISSION_VAR01_FILE}.o
 
-${CC} $CFLAGS -c \
+${CC} ${CFLAGS} -c \
     ${OP_SUBMISSION_VAR01_CUDA} -o ${OP_SUBMISSION_VAR01_CUDA}.o
 
 
@@ -71,7 +78,7 @@ ${CC_HOST} ${CC_HOST_CFLAGS} -c \
     -DDISTRIBUTED_FREE_NAME=${DISTRIBUTED_FREE_NAME_TST}\
     ${OP_SUBMISSION_VAR02_FILE} -o ${OP_SUBMISSION_VAR02_FILE}.o
 
-${CC} $CFLAGS -c \
+${CC} ${CFLAGS} -c \
     ${OP_SUBMISSION_VAR02_CUDA} -o ${OP_SUBMISSION_VAR02_CUDA}.o
 
 
@@ -83,15 +90,16 @@ ${CC_HOST} ${CC_HOST_CFLAGS} -c \
     -DDISTRIBUTED_FREE_NAME=${DISTRIBUTED_FREE_NAME_TST}\
     ${OP_SUBMISSION_VAR03_FILE} -o ${OP_SUBMISSION_VAR03_FILE}.o
 
-${CC} $CFLAGS -c \
+${CC} ${CFLAGS} -c \
     ${OP_SUBMISSION_VAR03_CUDA} -o ${OP_SUBMISSION_VAR03_CUDA}.o
 
 
-# build the timers
-${CC} ${CFLAGS} -ccbin=${CC_HOST} ${LDFLAGS} ${TEST_RIG}.o ${OP_SUBMISSION_VAR01_CUDA}.o ${OP_SUBMISSION_VAR01_FILE}.o -o ./run_bench_op_var01.x
-									        			          
-${CC} ${CFLAGS} -ccbin=${CC_HOST} ${LDFLAGS} ${TEST_RIG}.o ${OP_SUBMISSION_VAR02_CUDA}.o ${OP_SUBMISSION_VAR02_FILE}.o -o ./run_bench_op_var02.x
-									        			          
-${CC} ${CFLAGS} -ccbin=${CC_HOST} ${LDFLAGS} ${TEST_RIG}.o ${OP_SUBMISSION_VAR03_CUDA}.o ${OP_SUBMISSION_VAR03_FILE}.o -o ./run_bench_op_var03.x
+# Build the verifier
+#${CC_HOST} ${CC_HOST_CFLAGS} ${LDFLAGS} ${TEST_RIG}.o ${OP_BASELINE_FILE}.ref.o ${OP_SUBMISSION_VAR01_CUDA}.o ${OP_SUBMISSION_VAR01_FILE}.o -o ./run_test_op_var01.x
+${CC} ${CFLAGS} -ccbin=${CC_HOST} ${LDFLAGS} ${TEST_RIG}.o ${OP_BASELINE_FILE}.ref.o ${OP_SUBMISSION_VAR01_CUDA}.o ${OP_SUBMISSION_VAR01_FILE}.o -o ./run_test_op_var01.x
+												      					    
+${CC} ${CFLAGS} -ccbin=${CC_HOST} ${LDFLAGS} ${TEST_RIG}.o ${OP_BASELINE_FILE}.ref.o ${OP_SUBMISSION_VAR02_CUDA}.o ${OP_SUBMISSION_VAR02_FILE}.o -o ./run_test_op_var02.x
+											      					    
+${CC} ${CFLAGS} -ccbin=${CC_HOST} ${LDFLAGS} ${TEST_RIG}.o ${OP_BASELINE_FILE}.ref.o ${OP_SUBMISSION_VAR03_CUDA}.o ${OP_SUBMISSION_VAR03_FILE}.o -o ./run_test_op_var03.x
 
-
+echo "Build Verifier: Complete"
