@@ -67,21 +67,26 @@
 #define DISTRIBUTED_FREE_NAME baseline_free
 #endif
 
-//We did 2 levels inner loop unrolling for the most inner loop
-void COMPUTE_NAME(int m0, int n0, float *A_distributed, float *B_distributed,
-                  float *C_distributed)
+
+
+
+void COMPUTE_NAME( int m0, int n0,
+		   float *A_distributed,
+		   float *B_distributed,
+		   float *C_distributed )
 
 {
   int rid;
   int num_ranks;
   int tag = 0;
-  MPI_Status status;
+  MPI_Status  status;
   int root_rid = 0;
+
 
   /*
 
-    Using the convention that row_stride (rs) is the step size you take going
-    down a row, column stride (cs) is the step size going down the column.
+    Using the convention that row_stride (rs) is the step size you take going down a row,
+    column stride (cs) is the step size going down the column.
   */
   // A is column major
   int rs_A = m0;
@@ -94,20 +99,24 @@ void COMPUTE_NAME(int m0, int n0, float *A_distributed, float *B_distributed,
   // C is column major
   int rs_C = m0;
   int cs_C = 1;
+  
 
   MPI_Comm_rank(MPI_COMM_WORLD, &rid);
   MPI_Comm_size(MPI_COMM_WORLD, &num_ranks);
 
-if (rid == root_rid) {
+  if (rid == root_rid) {
   int block_size = 32;      // Outer block size
-  int sub_block_size = 16;   // Inner block size for 2D blocking
+  int sub_block_size = 16;  // Inner block size for 2D blocking
 
+  // Initialize C_distributed matrix to 0
   for (int i0 = 0; i0 < m0; ++i0) {
     for (int j0 = 0; j0 < n0; ++j0) {
       C_distributed[i0 * cs_C + j0 * rs_C] = 0.0f;
     }
   }
 
+  // Process blocks
+  #pragma omp parallel for collapse(2)
   for (int i_block = 0; i_block < m0; i_block += block_size) {
     for (int j_block = i_block + 1; j_block < n0; j_block += block_size) {
       for (int p_block = 0; p_block < m0; p_block += block_size) {
@@ -122,11 +131,34 @@ if (rid == root_rid) {
                 for (int j0 = jj_block; j0 < jj_block + sub_block_size && j0 < n0; ++j0) {
                   if (j0 > i0) {  // Maintain triangular matrix constraint
                     float res = 0.0f;
-                    for (int p0 = pp_block; p0 < pp_block + sub_block_size && p0 < m0; ++p0) {
+
+                    // Unrolling the p0 loop by a factor of 4
+                    int p0 = pp_block;
+                    for (; p0 <= pp_block + sub_block_size - 4 && p0 < m0; p0 += 4) {
+                      float A_ip1 = A_distributed[i0 + (p0 + 0) * rs_A];
+                      float B_pj1 = B_distributed[(p0 + 0) + j0 * rs_B];
+                      res += A_ip1 * B_pj1;
+
+                      float A_ip2 = A_distributed[i0 + (p0 + 1) * rs_A];
+                      float B_pj2 = B_distributed[(p0 + 1) + j0 * rs_B];
+                      res += A_ip2 * B_pj2;
+
+                      float A_ip3 = A_distributed[i0 + (p0 + 2) * rs_A];
+                      float B_pj3 = B_distributed[(p0 + 2) + j0 * rs_B];
+                      res += A_ip3 * B_pj3;
+
+                      float A_ip4 = A_distributed[i0 + (p0 + 3) * rs_A];
+                      float B_pj4 = B_distributed[(p0 + 3) + j0 * rs_B];
+                      res += A_ip4 * B_pj4;
+                    }
+
+                    // Handle remaining iterations
+                    for (; p0 < pp_block + sub_block_size && p0 < m0; ++p0) {
                       float A_ip = A_distributed[i0 + p0 * rs_A];
                       float B_pj = B_distributed[p0 + j0 * rs_B];
                       res += A_ip * B_pj;
                     }
+
                     C_distributed[i0 * cs_C + j0 * rs_C] += res;
                   }
                 }
@@ -138,9 +170,11 @@ if (rid == root_rid) {
     }
   }
 }
- else {
-  /* Modify here for distributed memory context if needed */
-}
+  else
+    {
+      /* STUDENT_TODO: Modify this is you plan to use more
+       than 1 rank to do work in distributed memory context. */
+    }
 }
 
 
