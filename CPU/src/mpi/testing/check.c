@@ -3,7 +3,6 @@
 #include <stdlib.h>
 #include <math.h>
 
-// Include your implementation
 #include "test.c"
 
 void print_matrix(const char *name, float *matrix, int rows, int cols) {
@@ -67,16 +66,9 @@ int main(int argc, char **argv) {
   float C_sequential[m0 * n0];
   float *A_distributed, *B_distributed, *C_distributed;
 
-  // Allocate distributed buffers
   DISTRIBUTED_ALLOCATE_NAME(m0, n0, &A_distributed, &B_distributed, &C_distributed);
-
-  // Distribute data
   DISTRIBUTE_DATA_NAME(m0, n0, A_sequential, B_sequential, A_distributed, B_distributed);
-
-  // Perform distributed computation
   COMPUTE_NAME(m0, n0, A_distributed, B_distributed, C_distributed);
-
-  // Collect results
   float C_result[m0 * n0]; // Final gathered result
   COLLECT_DATA_NAME(m0, n0, C_distributed, C_result);
 
@@ -97,8 +89,6 @@ int main(int argc, char **argv) {
       printf("Verification FAILED: Distributed computation does not match sequential computation.\n");
     }
   }
-
-  // Free allocated memory
   DISTRIBUTED_FREE_NAME(m0, n0, A_distributed, B_distributed, C_distributed);
 
   MPI_Finalize();

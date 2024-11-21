@@ -23,11 +23,11 @@
 # size I want to see. (HINT: for a large number
 # of ranks you need to up that number to hit
 # higher performance numbers)
-MIN=64
+MIN=4
 #MAX=8192 # good large number
-MAX=512 # medium size
+MAX=8 # medium size
 #MAX=1024 # small devel size
-STEP=64
+STEP=4
 
 
 # This is just for local runs

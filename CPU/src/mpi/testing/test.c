@@ -30,18 +30,30 @@ void COMPUTE_NAME(int m0, int n0, float *A_distributed, float *B_distributed, fl
     MPI_Comm_rank(MPI_COMM_WORLD, &rid);
     MPI_Comm_size(MPI_COMM_WORLD, &num_ranks);
 
-    // Compute how many rows this rank handles
     int rows_per_rank = m0 / num_ranks;
     int extra_rows = m0 % num_ranks;
-
     int rows_for_this_rank = rows_per_rank + (rid < extra_rows ? 1 : 0);
-
-    // Initialize C_distributed to zero (to ensure no garbage values)
     for (int i = 0; i < rows_for_this_rank * n0; ++i) {
         C_distributed[i] = 0.0f;
     }
 
-    // Perform matrix multiplication for the assigned rows
+     // Debugging: Print the portion of A_distributed and B_distributed
+    // printf("Rank %d: A_distributed (rows for this rank):\n", rid);
+    // for (int i = 0; i < rows_for_this_rank; ++i) {
+    //     for (int j = 0; j < m0; ++j) {
+    //         printf("%10.2f ", A_distributed[i * m0 + j]);
+    //     }
+    //     printf("\n");
+    // }
+
+    //printf("Rank %d: B_distributed (full matrix):\n", rid);
+    // for (int i = 0; i < m0; ++i) {
+    //     for (int j = 0; j < n0; ++j) {
+    //         printf("%10.2f ", B_distributed[i * n0 + j]);
+    //     }
+    //     printf("\n");
+    // }
+
     for (int i = 0; i < rows_for_this_rank; ++i) { // Loop over rows assigned to this rank
         for (int j = 0; j < n0; ++j) {             // Loop over columns of B / C
             float result = 0.0f;                   // Initialize result for C[i, j]
@@ -51,6 +63,15 @@ void COMPUTE_NAME(int m0, int n0, float *A_distributed, float *B_distributed, fl
             C_distributed[i * n0 + j] = result;    // Store result in the distributed C matrix
         }
     }
+
+    // Debugging: Print C_distributed for this rank
+    // printf("Rank %d: C_distributed (rows for this rank):\n", rid);
+    // for (int i = 0; i < rows_for_this_rank; ++i) {
+    //     for (int j = 0; j < n0; ++j) {
+    //         printf("%10.2f ", C_distributed[i * n0 + j]);
+    //     }
+    //     printf("\n");
+    // }
 }
 
 
@@ -72,7 +93,13 @@ void DISTRIBUTED_ALLOCATE_NAME(int m0, int n0,
     *A_distributed = (float *)malloc(sizeof(float) * rows_for_this_rank * m0);
     *B_distributed = (float *)malloc(sizeof(float) * m0 * n0); // Allocate full matrix for B
     *C_distributed = (float *)malloc(sizeof(float) * rows_for_this_rank * n0);
+
+    if (!*A_distributed || !*B_distributed || !*C_distributed) {
+        fprintf(stderr, "Rank %d: Memory allocation failed!\n", rid);
+        MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
+    }
 }
+
 
 
 void DISTRIBUTE_DATA_NAME(int m0, int n0,
@@ -85,19 +112,6 @@ void DISTRIBUTE_DATA_NAME(int m0, int n0,
     MPI_Comm_rank(MPI_COMM_WORLD, &rid);
     MPI_Comm_size(MPI_COMM_WORLD, &num_ranks);
 
-    printf("A_sequential:\n");
-    for (int i = 0; i < m0*n0; ++i) {
-        printf("%10.2f ", A_sequential[i]);
-    }
-    printf("\n");
-
-    printf("B_sequential:\n");
-    for (int i = 0; i < m0*n0; ++i) {
-        printf("%10.2f ", B_sequential[i]);
-    }
-    printf("\n");
-
-
     // Calculate rows per rank and extra rows
     int rows_per_rank = m0 / num_ranks;
     int extra_rows = m0 % num_ranks;
@@ -105,7 +119,6 @@ void DISTRIBUTE_DATA_NAME(int m0, int n0,
     // Determine the number of rows for this rank
     int rows_for_this_rank = rows_per_rank + (rid < extra_rows ? 1 : 0);
 
-    // Step 1: Calculate `sendcounts` and `displs` arrays for MPI_Scatterv
     int *sendcounts = NULL;
     int *displs = NULL;
 
@@ -122,7 +135,6 @@ void DISTRIBUTE_DATA_NAME(int m0, int n0,
         }
     }
 
-    // Step 2: Scatter rows of A using MPI_Scatterv
     MPI_Scatterv(A_sequential, sendcounts, displs, MPI_FLOAT,
                  A_distributed, rows_for_this_rank * m0, MPI_FLOAT,
                  0, MPI_COMM_WORLD);
@@ -131,8 +143,6 @@ void DISTRIBUTE_DATA_NAME(int m0, int n0,
         free(sendcounts);
         free(displs);
     }
-
-    // Step 3: Broadcast the full matrix B to all ranks
     if (rid == 0) {
         for (int i = 0; i < m0 * n0; ++i) {
             B_distributed[i] = B_sequential[i];
@@ -158,6 +168,7 @@ void DISTRIBUTE_DATA_NAME(int m0, int n0,
     }
 }
 
+
 void COLLECT_DATA_NAME(int m0, int n0,
                        float *C_distributed,
                        float *C_sequential) {
@@ -166,11 +177,8 @@ void COLLECT_DATA_NAME(int m0, int n0,
     MPI_Comm_rank(MPI_COMM_WORLD, &rid);
     MPI_Comm_size(MPI_COMM_WORLD, &num_ranks);
 
-    // Calculate rows per rank and extra rows
     int rows_per_rank = m0 / num_ranks;
     int extra_rows = m0 % num_ranks;
-
-    // Calculate rows for this rank
     int rows_for_this_rank = rows_per_rank + (rid < extra_rows ? 1 : 0);
 
     if (rid == 0) {
@@ -191,7 +199,6 @@ void COLLECT_DATA_NAME(int m0, int n0,
 
             offset += rows_to_receive * n0; // Update offset for the next rank
         }
-        // Step 2: Transform C_sequential from row-major to column-major
         float *C_temp = (float *)malloc(sizeof(float) * m0 * n0);
         for (int i = 0; i < m0; ++i) {
             for (int j = 0; j < n0; ++j) {
@@ -203,6 +210,12 @@ void COLLECT_DATA_NAME(int m0, int n0,
             C_sequential[i] = C_temp[i];
         }
         free(C_temp);
+
+        // printf("Rank %d: C_sequential transformed to column-major order.\n", rid);
+        // for (int i = 0; i < m0 * n0; ++i) {
+        //     printf("%10.2f ", C_sequential[i]);
+        // }
+        //printf("\n");
     } else {
         MPI_Send(C_distributed, rows_for_this_rank * n0, MPI_FLOAT, 0, 0, MPI_COMM_WORLD);
     }
