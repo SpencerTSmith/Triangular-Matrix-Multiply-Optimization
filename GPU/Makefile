@@ -25,8 +25,8 @@
 # higher performance numbers)
 MIN=64
 #MAX=8192 # good large number
-MAX=4096 # medium size
-#MAX=1024 # small devel size
+# MAX=4096 # medium size
+MAX=1024 # small devel size
 STEP=64
 
 
@@ -46,7 +46,7 @@ SHELL:=/bin/bash
 
 
 clean:
-	rm -f *.x *~ *.o
+	rm -f *.x *~ ./src/*.o
 
 cleanall: clean
 	rm -f *.csv *.png
